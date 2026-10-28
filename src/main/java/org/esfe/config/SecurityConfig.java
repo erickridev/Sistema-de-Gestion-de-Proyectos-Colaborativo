@@ -1,5 +1,6 @@
 package org.esfe.config;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -45,6 +46,12 @@ public class SecurityConfig {
                         // Todos los endpoints bajo /api/** requieren estar autenticados con un token válido
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(exception -> exception
+                        // Responde explícitamente con 401 Unauthorized si falta autenticación o el token es inválido
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Acceso no autorizado: Token JWT requerido")
+                        )
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

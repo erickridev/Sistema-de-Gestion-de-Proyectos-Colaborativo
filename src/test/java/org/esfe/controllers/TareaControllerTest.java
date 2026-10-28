@@ -1,7 +1,9 @@
 package org.esfe.controllers;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.esfe.models.Tarea;
 import org.esfe.services.TareaService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -11,7 +13,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.Mockito.when;
@@ -29,19 +30,26 @@ class TareaControllerTest {
     @MockBean
     private TareaService tareaService;
 
-    @Test
-    @WithMockUser(username = "admin@ejemplo.com", roles = {"ADMIN"})
-    void testObtenerTareaPorIdConAutenticacion() throws Exception {
-        Tarea tarea = new Tarea();
-        tarea.setId(1L);
-        tarea.setTitulo("Implementar Seguridad");
+    private Tarea tarea;
 
+    @BeforeEach
+    void setUp() {
+        tarea = new Tarea();
+        tarea.setId(1L);
+        tarea.setTitulo("Diseñar Base de Datos");
+        tarea.setEstado(Tarea.EstadoTarea.PENDIENTE);
+    }
+
+    @Test
+    @WithMockUser(username = "user@ejemplo.com", roles = {"USER"})
+    void testObtenerTareaPorIdExitoso() throws Exception {
         when(tareaService.buscarPorId(1L)).thenReturn(Optional.of(tarea));
 
         mockMvc.perform(get("/api/tareas/1")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.titulo").value("Implementar Seguridad"));
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.titulo").value("Diseñar Base de Datos"));
     }
 
     @Test
