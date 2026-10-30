@@ -35,15 +35,17 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Rutas públicas: Documentación OpenAPI / Swagger UI y Auth
+                        // Rutas públicas: Documentación OpenAPI / Swagger UI, Auth, Roles y Categorías
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/v3/api-docs.yaml",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/api/auth/**"
+                                "/api/auth/**",
+                                "/api/roles/**",
+                                "/api/categorias/**"
                         ).permitAll()
-                        // Todos los endpoints bajo /api/** requieren estar autenticados con un token válido
+                        // Todos los demás endpoints bajo /api/** requieren estar autenticados con un token válido
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated()
                 )

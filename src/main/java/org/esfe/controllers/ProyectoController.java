@@ -40,6 +40,19 @@ public class ProyectoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(proyectoService.guardar(proyecto));
     }
 
+    // --- MÉTODOS DE ACTUALIZACIÓN Y ELIMINACIÓN ---
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Proyecto> actualizar(@PathVariable Long id, @RequestBody Proyecto proyecto) {
+        return proyectoService.buscarPorId(id)
+                .map(proyectoExistente -> {
+                    proyecto.setId(id); // Asegura que se actualice el ID correcto
+                    Proyecto actualizado = proyectoService.guardar(proyecto);
+                    return ResponseEntity.ok(actualizado);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         proyectoService.eliminar(id);
