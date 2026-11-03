@@ -1,7 +1,9 @@
+
 package org.esfe.models;
 
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDate;
 
 @Entity
@@ -22,6 +24,7 @@ public class Proyecto {
     private String descripcion;
 
     private LocalDate fechaInicio;
+
     private LocalDate fechaFin;
 
     @ManyToOne

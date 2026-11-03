@@ -1,3 +1,4 @@
+
 package org.esfe.dtos;
 
 import lombok.AllArgsConstructor;
@@ -10,7 +11,10 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ErrorResponse {
+
     private int status;
+
     private String message;
+
     private LocalDateTime timestamp;
 }

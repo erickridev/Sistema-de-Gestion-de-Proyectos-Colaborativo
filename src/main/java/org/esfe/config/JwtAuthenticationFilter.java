@@ -1,22 +1,28 @@
+
 package org.esfe.config;
+
+import io.jsonwebtoken.JwtException;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.esfe.models.Usuario;
 import org.esfe.services.UsuarioService;
+
+import org.springframework.http.HttpMethod;
 import org.springframework.lang.NonNull;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Date;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -24,11 +30,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UsuarioService usuarioService;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UsuarioService usuarioService) {
+    // INYECCION DE DEPENDENCIAS
+    public JwtAuthenticationFilter(
+            JwtService jwtService,
+            UsuarioService usuarioService
+    ) {
         this.jwtService = jwtService;
         this.usuarioService = usuarioService;
     }
 
+    // OMITIR RUTAS PUBLICAS Y SOLICITUDES OPTIONS
+    @Override
+    protected boolean shouldNotFilter(
+            HttpServletRequest request
+    ) {
+
+        String path = request.getServletPath();
+
+        return HttpMethod.OPTIONS.matches(request.getMethod())
+                || path.equals("/api/auth/register")
+                || path.equals("/api/auth/login")
+                || path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs");
+    }
+
+    // VALIDAR TOKEN JWT
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
@@ -36,45 +62,114 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String userEmail;
+        String authHeader = request.getHeader("Authorization");
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        // SI NO HAY TOKEN, CONTINUAR
+        // SPRING SECURITY DECIDIRA SI LA RUTA ES PUBLICA
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
             filterChain.doFilter(request, response);
             return;
         }
 
-        jwt = authHeader.substring(7);
-        userEmail = jwtService.obtenerEmailDelToken(jwt);
+        String jwt = authHeader.substring(7).trim();
 
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            Usuario usuario = this.usuarioService.buscarPorEmail(userEmail).orElse(null);
+        // VALIDAR TOKEN VACIO
+        if (jwt.isEmpty()) {
+            enviarError401(response);
+            return;
+        }
 
-            if (usuario != null && jwtService.esTokenValido(jwt, usuario.getEmail())) {
-                List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+        try {
 
-                // Validar que el rol y su nombre no sean nulos para evitar errores
-                if (usuario.getRol() != null && usuario.getRol().getNombre() != null) {
-                    String nombreRol = usuario.getRol().getNombre();
-                    if (!nombreRol.startsWith("ROLE_")) {
-                        nombreRol = "ROLE_" + nombreRol;
-                    }
-                    authorities.add(new SimpleGrantedAuthority(nombreRol));
-                } else {
-                    // Rol por defecto si no viene cargado desde la BD
-                    authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+            // OBTENER EMAIL DEL TOKEN
+            String email = jwtService.obtenerEmailDelToken(jwt);
+
+            if (email == null || email.isBlank()) {
+                enviarError401(response);
+                return;
+            }
+
+            // VERIFICAR SI YA EXISTE AUTENTICACION
+            if (SecurityContextHolder.getContext()
+                    .getAuthentication() == null) {
+
+                // BUSCAR USUARIO EN BASE DE DATOS
+                Usuario usuario = usuarioService
+                        .buscarPorEmail(email)
+                        .orElse(null);
+
+                // VALIDAR EXISTENCIA Y ESTADO DEL USUARIO
+                if (usuario == null ||
+                        !usuario.isEnabled() ||
+                        !usuario.isAccountNonLocked() ||
+                        !usuario.isAccountNonExpired() ||
+                        !usuario.isCredentialsNonExpired()) {
+
+                    enviarError401(response);
+                    return;
                 }
 
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        usuario,
-                        null,
-                        authorities
+                // VALIDAR TOKEN
+                if (!jwtService.esTokenValido(
+                        jwt, usuario.getEmail())) {
+
+                    enviarError401(response);
+                    return;
+                }
+
+                // OBTENER ROLES DEL USUARIO
+                var authorities = usuario.getAuthorities();
+
+                // EVITAR AUTENTICAR USUARIOS SIN ROLES
+                if (authorities == null || authorities.isEmpty()) {
+                    enviarError401(response);
+                    return;
+                }
+
+                // CREAR AUTENTICACION
+                UsernamePasswordAuthenticationToken authToken =
+                        new UsernamePasswordAuthenticationToken(
+                                usuario,
+                                null,
+                                authorities
+                        );
+
+                authToken.setDetails(
+                        new WebAuthenticationDetailsSource()
+                                .buildDetails(request)
                 );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                // REGISTRAR AUTENTICACION
+                SecurityContextHolder.getContext()
+                        .setAuthentication(authToken);
             }
+
+        } catch (JwtException | IllegalArgumentException ex) {
+
+            // LIMPIAR CONTEXTO DE SEGURIDAD
+            SecurityContextHolder.clearContext();
+
+            // TOKEN INVALIDO O EXPIRADO
+            enviarError401(response);
+            return;
         }
+
+        // CONTINUAR CON LA SOLICITUD
         filterChain.doFilter(request, response);
+    }
+
+    // RESPUESTA PARA TOKENS INVALIDOS
+    private void enviarError401(
+            HttpServletResponse response
+    ) throws IOException {
+
+        SecurityContextHolder.clearContext();
+
+        response.sendError(
+                HttpServletResponse.SC_UNAUTHORIZED,
+                "Token JWT invalido o expirado"
+        );
     }
 }

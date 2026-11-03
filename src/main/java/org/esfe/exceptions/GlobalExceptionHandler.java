@@ -1,72 +1,154 @@
+
 package org.esfe.exceptions;
 
 import org.esfe.dtos.ErrorResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.springframework.dao.DataIntegrityViolationException;
+
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import org.springframework.web.server.ResponseStatusException;
+
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Maneja errores de credenciales incorrectas (Login)
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
+    private static final Logger logger =
+            LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    // CREAR RESPUESTA DE ERROR
+    private ResponseEntity<ErrorResponse> crearRespuesta(
+            HttpStatusCode status,
+            String mensaje
+    ) {
+
         ErrorResponse error = new ErrorResponse(
-                HttpStatus.UNAUTHORIZED.value(),
-                "Credenciales inválidas: correo o contraseña incorrectos",
+                status.value(),
+                mensaje,
                 LocalDateTime.now()
         );
-        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
+
+        return ResponseEntity.status(status).body(error);
     }
 
-    // Maneja errores cuando un usuario no es encontrado
-    @ExceptionHandler(UsernameNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleUsernameNotFound(UsernameNotFoundException ex) {
-        ErrorResponse error = new ErrorResponse(
-                HttpStatus.NOT_FOUND.value(),
-                ex.getMessage(),
-                LocalDateTime.now()
+    // ERROR DE AUTENTICACION
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthentication(
+            AuthenticationException ex
+    ) {
+
+        return crearRespuesta(
+                HttpStatus.UNAUTHORIZED,
+                "Credenciales invalidas"
         );
-        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
     }
 
-    // Maneja argumentos o parámetros no válidos generados en los servicios
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
-        ErrorResponse error = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                ex.getMessage(),
-                LocalDateTime.now()
+    // ERROR DE PERMISOS
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(
+            AccessDeniedException ex
+    ) {
+
+        return crearRespuesta(
+                HttpStatus.FORBIDDEN,
+                "No tiene permisos para realizar esta accion"
         );
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
-    // Maneja errores de validación de Spring (@Valid / @NotBlank, etc.)
+    // ERRORES HTTP CONTROLADOS
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(
+            ResponseStatusException ex
+    ) {
+
+        String mensaje = ex.getReason();
+
+        if (mensaje == null || mensaje.isBlank()) {
+            mensaje = "No se pudo completar la solicitud";
+        }
+
+        return crearRespuesta(
+                ex.getStatusCode(),
+                mensaje
+        );
+    }
+
+    // ERRORES DE VALIDACION
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(error ->
-                errors.put(error.getField(), error.getDefaultMessage())
+    public ResponseEntity<ErrorResponse> handleValidation(
+            MethodArgumentNotValidException ex
+    ) {
+
+        String mensaje = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error ->
+                        error.getField() + ": " +
+                                error.getDefaultMessage()
+                )
+                .distinct()
+                .collect(Collectors.joining("; "));
+
+        if (mensaje.isBlank()) {
+            mensaje = "Los datos enviados no son validos";
+        }
+
+        return crearRespuesta(
+                HttpStatus.BAD_REQUEST,
+                mensaje
         );
-        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
     }
 
-    // Captura cualquier otro error no controlado
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex) {
-        ErrorResponse error = new ErrorResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "Ocurrió un error interno en el servidor: " + ex.getMessage(),
-                LocalDateTime.now()
+    // ARGUMENTOS INVALIDOS
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(
+            IllegalArgumentException ex
+    ) {
+
+        return crearRespuesta(
+                HttpStatus.BAD_REQUEST,
+                "Los datos proporcionados no son validos"
         );
-        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // ERRORES DE INTEGRIDAD EN MYSQL
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(
+            DataIntegrityViolationException ex
+    ) {
+
+        return crearRespuesta(
+                HttpStatus.CONFLICT,
+                "La operacion no se puede completar por una "
+                        + "restriccion de integridad de datos"
+        );
+    }
+
+    // ERRORES INTERNOS
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGlobalException(
+            Exception ex
+    ) {
+
+        logger.error("Error interno no controlado", ex);
+
+        return crearRespuesta(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "Ocurrio un error interno en el servidor"
+        );
     }
 }
