@@ -50,7 +50,7 @@ public class AuthService {
     @Transactional
     public AuthResponse register(RegisterRequest request) {
 
-        String email = request.email().trim().toLowerCase();
+        String email = request.email().trim().toLowerCase(java.util.Locale.ROOT);
 
         // VERIFICAR CORREO DUPLICADO
         if (usuarioRepository.existsByEmail(email)) {
@@ -96,7 +96,7 @@ public class AuthService {
     @Transactional(readOnly = true)
     public AuthResponse login(AuthRequest request) {
 
-        String email = request.getEmail().trim().toLowerCase();
+        String email = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
 
         // AUTENTICAR USUARIO
         authenticationManager.authenticate(

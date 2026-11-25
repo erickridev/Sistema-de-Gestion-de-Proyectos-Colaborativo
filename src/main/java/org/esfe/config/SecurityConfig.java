@@ -37,14 +37,17 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
+    private final SecurityErrorWriter errorWriter;
 
     // INYECCION DE DEPENDENCIAS
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthFilter,
-            UserDetailsService userDetailsService
+            UserDetailsService userDetailsService,
+            SecurityErrorWriter errorWriter
     ) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.userDetailsService = userDetailsService;
+        this.errorWriter = errorWriter;
     }
 
     // CONFIGURACION DE SEGURIDAD
@@ -66,6 +69,9 @@ public class SecurityConfig {
 
                 // CONFIGURACION DE PERMISOS
                 .authorizeHttpRequests(auth -> auth
+
+                        // Interfaz web servida desde la misma aplicacion.
+                        .requestMatchers(HttpMethod.GET, "/", "/index.html", "/assets/**", "/favicon.svg").permitAll()
 
                         // SOLICITUDES OPTIONS
                         .requestMatchers(
@@ -153,7 +159,7 @@ public class SecurityConfig {
                         // ERROR 401
                         .authenticationEntryPoint(
                                 (request, response, authException) ->
-                                        response.sendError(
+                                        errorWriter.write(response,
                                                 HttpServletResponse.SC_UNAUTHORIZED,
                                                 "Autenticacion requerida"
                                         )
@@ -162,7 +168,7 @@ public class SecurityConfig {
                         // ERROR 403
                         .accessDeniedHandler(
                                 (request, response, accessDeniedException) ->
-                                        response.sendError(
+                                        errorWriter.write(response,
                                                 HttpServletResponse.SC_FORBIDDEN,
                                                 "No tiene permisos para realizar esta accion"
                                         )
@@ -207,5 +213,13 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    // El filtro JWT se ejecuta solo dentro de la cadena de Spring Security.
+    @Bean
+    public org.springframework.boot.web.servlet.FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration() {
+        var registration = new org.springframework.boot.web.servlet.FilterRegistrationBean<>(jwtAuthFilter);
+        registration.setEnabled(false);
+        return registration;
     }
 }

@@ -2,6 +2,7 @@
 package org.esfe.controllers;
 
 import org.esfe.models.Categoria;
+import jakarta.validation.Valid;
 import org.esfe.services.CategoriaService;
 
 import org.springframework.http.HttpStatus;
@@ -42,8 +43,9 @@ public class CategoriaController {
     // CREATE: Registrar categoría
     @PostMapping
     public ResponseEntity<Categoria> crear(
-            @RequestBody Categoria categoria) {
+            @Valid @RequestBody Categoria categoria) {
 
+        categoria.setId(null);
         Categoria nuevaCategoria =
                 categoriaService.guardar(categoria);
 
@@ -56,20 +58,10 @@ public class CategoriaController {
     @PutMapping("/{id}")
     public ResponseEntity<Categoria> actualizar(
             @PathVariable Long id,
-            @RequestBody Categoria categoria) {
+            @Valid @RequestBody Categoria categoria) {
 
-        return categoriaService.buscarPorId(id)
-                .map(categoriaExistente -> {
-
-                    categoriaExistente.setNombre(
-                            categoria.getNombre()
-                    );
-
-                    Categoria actualizada =
-                            categoriaService.guardar(categoriaExistente);
-
-                    return ResponseEntity.ok(actualizada);
-                })
+        return categoriaService.actualizar(id, categoria)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -78,11 +70,9 @@ public class CategoriaController {
     public ResponseEntity<Void> eliminar(
             @PathVariable Long id) {
 
-        if (categoriaService.buscarPorId(id).isEmpty()) {
+        if (!categoriaService.eliminar(id)) {
             return ResponseEntity.notFound().build();
         }
-
-        categoriaService.eliminar(id);
 
         return ResponseEntity.noContent().build();
     }

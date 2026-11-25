@@ -138,6 +138,34 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler({
+            org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class
+    })
+    public ResponseEntity<ErrorResponse> handleMalformedRequest(Exception ex) {
+        return crearRespuesta(HttpStatus.BAD_REQUEST, "El cuerpo o los parametros de la solicitud no son validos");
+    }
+
+    // Mantener los codigos y encabezados HTTP definidos por Spring (405, 415, 406, 404...).
+    @ExceptionHandler(org.springframework.web.ErrorResponseException.class)
+    public ResponseEntity<ErrorResponse> handleHttpError(org.springframework.web.ErrorResponseException ex) {
+        return ResponseEntity.status(ex.getStatusCode()).headers(ex.getHeaders())
+                .body(new ErrorResponse(ex.getStatusCode().value(), "No se pudo completar la solicitud HTTP", LocalDateTime.now()));
+    }
+
+    @ExceptionHandler({
+            org.springframework.web.HttpRequestMethodNotSupportedException.class,
+            org.springframework.web.HttpMediaTypeNotSupportedException.class,
+            org.springframework.web.HttpMediaTypeNotAcceptableException.class,
+            org.springframework.web.servlet.resource.NoResourceFoundException.class
+    })
+    public ResponseEntity<ErrorResponse> handleHttpRequest(Exception ex) {
+        org.springframework.web.ErrorResponse error = (org.springframework.web.ErrorResponse) ex;
+        return ResponseEntity.status(error.getStatusCode()).headers(error.getHeaders())
+                .body(new ErrorResponse(error.getStatusCode().value(), "No se pudo completar la solicitud HTTP", LocalDateTime.now()));
+    }
+
     // ERRORES INTERNOS
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGlobalException(

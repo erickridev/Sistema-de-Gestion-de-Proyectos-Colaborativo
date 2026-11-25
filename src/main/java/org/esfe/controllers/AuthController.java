@@ -8,6 +8,8 @@ import org.esfe.dtos.AuthResponse;
 import org.esfe.dtos.RegisterRequest;
 
 import org.esfe.services.AuthService;
+import org.esfe.models.Usuario;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,4 +47,12 @@ public class AuthController {
 
         return ResponseEntity.ok(respuesta);
     }
+
+    @GetMapping("/me")
+    public CurrentUser me(@AuthenticationPrincipal Usuario usuario) {
+        return new CurrentUser(usuario.getId(), usuario.getLogin(), usuario.getNombre(), usuario.getEmail(),
+                usuario.getAuthorities().stream().map(authority -> authority.getAuthority()).toList());
+    }
+
+    public record CurrentUser(Long id, String login, String nombre, String email, java.util.List<String> authorities) {}
 }

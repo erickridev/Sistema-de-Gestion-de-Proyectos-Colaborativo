@@ -4,6 +4,9 @@ package org.esfe.dtos;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.AssertTrue;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.nio.charset.StandardCharsets;
 
 public record RegisterRequest(
 
@@ -26,4 +29,9 @@ public record RegisterRequest(
         String password
 
 ) {
+    @JsonIgnore
+    @AssertTrue(message = "La contraseña no puede superar 72 bytes UTF-8")
+    public boolean isPasswordBytesValid() {
+        return password == null || password.getBytes(StandardCharsets.UTF_8).length <= 72;
+    }
 }

@@ -2,6 +2,7 @@
 package org.esfe.controllers;
 
 import org.esfe.models.Proyecto;
+import jakarta.validation.Valid;
 import org.esfe.services.ProyectoService;
 
 import org.springframework.http.HttpStatus;
@@ -49,8 +50,9 @@ public class ProyectoController {
     // CREATE: Registrar proyecto
     @PostMapping
     public ResponseEntity<Proyecto> crear(
-            @RequestBody Proyecto proyecto) {
+            @Valid @RequestBody Proyecto proyecto) {
 
+        proyecto.setId(null);
         Proyecto nuevoProyecto = proyectoService.guardar(proyecto);
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -61,7 +63,7 @@ public class ProyectoController {
     @PutMapping("/{id}")
     public ResponseEntity<Proyecto> actualizar(
             @PathVariable Long id,
-            @RequestBody Proyecto proyecto) {
+            @Valid @RequestBody Proyecto proyecto) {
 
         return proyectoService.actualizar(id, proyecto)
                 .map(ResponseEntity::ok)

@@ -52,7 +52,7 @@ public class RolService {
         // Normalizar nombre del rol
         String nombre = rol.getNombre()
                 .trim()
-                .toUpperCase();
+                .toUpperCase(java.util.Locale.ROOT);
 
         if (!nombre.startsWith("ROLE_")) {
             nombre = "ROLE_" + nombre;

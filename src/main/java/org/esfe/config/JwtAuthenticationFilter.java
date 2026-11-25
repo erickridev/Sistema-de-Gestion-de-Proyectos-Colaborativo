@@ -22,21 +22,23 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Date;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UsuarioService usuarioService;
+    private final SecurityErrorWriter errorWriter;
 
     // INYECCION DE DEPENDENCIAS
     public JwtAuthenticationFilter(
             JwtService jwtService,
-            UsuarioService usuarioService
+            UsuarioService usuarioService,
+            SecurityErrorWriter errorWriter
     ) {
         this.jwtService = jwtService;
         this.usuarioService = usuarioService;
+        this.errorWriter = errorWriter;
     }
 
     // OMITIR RUTAS PUBLICAS Y SOLICITUDES OPTIONS
@@ -67,7 +69,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // SI NO HAY TOKEN, CONTINUAR
         // SPRING SECURITY DECIDIRA SI LA RUTA ES PUBLICA
         if (authHeader == null ||
-                !authHeader.startsWith("Bearer ")) {
+                !authHeader.regionMatches(true, 0, "Bearer ", 0, 7)) {
 
             filterChain.doFilter(request, response);
             return;
@@ -167,7 +169,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         SecurityContextHolder.clearContext();
 
-        response.sendError(
+        errorWriter.write(response,
                 HttpServletResponse.SC_UNAUTHORIZED,
                 "Token JWT invalido o expirado"
         );

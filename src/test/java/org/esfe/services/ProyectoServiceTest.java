@@ -4,6 +4,7 @@ package org.esfe.services;
 import org.esfe.models.Categoria;
 import org.esfe.models.Proyecto;
 import org.esfe.repositories.ProyectoRepository;
+import org.esfe.repositories.CategoriaRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,9 @@ class ProyectoServiceTest {
 
     @Mock
     private ProyectoRepository proyectoRepository;
+
+    @Mock
+    private CategoriaRepository categoriaRepository;
 
     @InjectMocks
     private ProyectoService proyectoService;
@@ -53,6 +57,7 @@ class ProyectoServiceTest {
     // PRUEBA 1: GUARDAR PROYECTO
     @Test
     void testGuardarProyecto() {
+        when(categoriaRepository.findById(1L)).thenReturn(Optional.of(categoria));
 
         when(proyectoRepository.save(proyecto))
                 .thenReturn(proyecto);
@@ -150,6 +155,7 @@ class ProyectoServiceTest {
     // PRUEBA 7: ACTUALIZAR PROYECTO EXISTENTE
     @Test
     void testActualizarProyectoExitoso() {
+        when(categoriaRepository.findById(1L)).thenReturn(Optional.of(categoria));
 
         Proyecto datosActualizados = new Proyecto();
         datosActualizados.setTitulo("Sistema Actualizado");
